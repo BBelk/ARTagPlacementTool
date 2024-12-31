@@ -99,7 +99,7 @@ class MarkerObj {
     const xLabel = document.createElement('label');
     xLabel.textContent = 'X:';
     const xInput = document.createElement('input');
-    xInput.type = 'number';
+    xInput.type = 'text'; // Changed to 'text' to allow expressions
     xInput.value = this.x + this.anchorX * this.size; // Displayed X based on anchor
     xContainer.appendChild(xLabel);
     xContainer.appendChild(xInput);
@@ -109,7 +109,7 @@ class MarkerObj {
     const yLabel = document.createElement('label');
     yLabel.textContent = 'Y:';
     const yInput = document.createElement('input');
-    yInput.type = 'number';
+    yInput.type = 'text'; // Changed to 'text' to allow expressions
     yInput.value = this.y + this.anchorY * this.size; // Displayed Y based on anchor
     yContainer.appendChild(yLabel);
     yContainer.appendChild(yInput);
@@ -124,7 +124,7 @@ class MarkerObj {
     const scaleLabel = document.createElement('label');
     scaleLabel.textContent = 'Size (px):';
     const scaleInput = document.createElement('input');
-    scaleInput.type = 'number';
+    scaleInput.type = 'text'; // Changed to 'text' to allow expressions
     scaleInput.value = this.size;
     scaleRow.appendChild(scaleLabel);
     scaleRow.appendChild(scaleInput);
@@ -171,13 +171,9 @@ class MarkerObj {
       cell.style.background = (pt.ax === this.anchorX && pt.ay === this.anchorY) ? '#ddd' : '#fff';
 
       cell.addEventListener('click', () => {
-        const oldAnchorX = this.anchorX;
-        const oldAnchorY = this.anchorY;
         this.anchorX = pt.ax;
         this.anchorY = pt.ay;
         this.highlightAnchorCell(anchorCells, pt.ax, pt.ay);
-        // Note: We do NOT adjust marker position, as per original logic
-        // We never called adjustPositionForAnchorChange here.
         this.updateUIFields();
         this.regenerateMarker();
       });
@@ -189,23 +185,17 @@ class MarkerObj {
     const imgContainer = document.createElement('div');
     imgContainer.className = 'marker-image';
     const imgEl = document.createElement('img');
+    // Set fixed size for the UI panel's marker image
+    imgEl.style.width = '100px';  // Fixed width
+    imgEl.style.height = '100px'; // Fixed height
+    imgEl.style.objectFit = 'contain'; // Maintain aspect ratio
     imgContainer.appendChild(imgEl);
 
     anchorContainer.appendChild(anchorGrid);
-    anchorContainer.appendChild(imgContainer);
+    anchorContainer.appendChild(imgEl);
 
     anchorRow.appendChild(anchorContainer);
     container.appendChild(anchorRow);
-
-    // Remove the separate imageContainer to keep grid and image on the same line
-    /*
-    // Image preview
-    const imageContainer = document.createElement('div');
-    imageContainer.className = 'marker-image';
-    const imageEl2 = document.createElement('img');
-    imageContainer.appendChild(imageEl2);
-    container.appendChild(imageContainer);
-    */
 
     // Event listeners
     dictSelect.addEventListener('change', () => {
@@ -233,55 +223,37 @@ class MarkerObj {
       this.regenerateMarker();
     });
 
-    xInput.addEventListener('change', () => {
-      const val = parseInt(xInput.value, 10);
-      if (!isNaN(val)) {
-        const displayedX = val;
-        this.x = displayedX - this.anchorX * this.size;
-        this.notifyUpdate();
+    // Event listeners for X input
+    xInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        this.evaluateXInput(xInput);
       }
     });
 
-    yInput.addEventListener('change', () => {
-      const val = parseInt(yInput.value, 10);
-      if (!isNaN(val)) {
-        const displayedY = val;
-        this.y = displayedY - this.anchorY * this.size;
-        this.notifyUpdate();
+    xInput.addEventListener('blur', () => {
+      this.evaluateXInput(xInput);
+    });
+
+    // Event listeners for Y input
+    yInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        this.evaluateYInput(yInput);
       }
     });
 
-    // Restore snapping logic
-    scaleInput.addEventListener('keydown', (e) => {
-      if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && this.currentMarkSize) {
-        const val = parseInt(scaleInput.value, 10);
-        if (!isNaN(val)) {
-          const snapped = this.snapToMultiple(val, this.currentMarkSize);
-          if (snapped !== val) {
-            scaleInput.value = snapped;
-          }
-          const oldSize = this.size;
-          this.size = snapped;
-          this.adjustPositionForScale(oldSize, this.size);
-          this.regenerateMarker();
-        }
+    yInput.addEventListener('blur', () => {
+      this.evaluateYInput(yInput);
+    });
+
+    // Event listeners for Scale input
+    scaleInput.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        this.evaluateScaleInput(scaleInput);
       }
     });
 
-    scaleInput.addEventListener('change', () => {
-      if (this.currentMarkSize) {
-        const val = parseInt(scaleInput.value, 10);
-        if (!isNaN(val)) {
-          const snapped = this.snapToMultiple(val, this.currentMarkSize);
-          if (snapped !== val) {
-            scaleInput.value = snapped;
-          }
-          const oldSize = this.size;
-          this.size = snapped;
-          this.adjustPositionForScale(oldSize, this.size);
-          this.regenerateMarker();
-        }
-      }
+    scaleInput.addEventListener('blur', () => {
+      this.evaluateScaleInput(scaleInput);
     });
 
     this.imgEl = imgEl;
@@ -293,6 +265,61 @@ class MarkerObj {
     this.anchorCells = anchorCells;
 
     return container;
+  }
+
+  // Helper methods to evaluate inputs
+  evaluateXInput(inputElement) {
+    try {
+      const val = eval(inputElement.value);
+      if (typeof val === 'number' && !isNaN(val)) {
+        this.x = Math.round(val - this.anchorX * this.size);
+        inputElement.value = Math.round(val);
+        this.notifyUpdate();
+      } else {
+        throw new Error('Result is not a valid number.');
+      }
+    } catch {
+      alert('Invalid expression for X.');
+      inputElement.value = this.x + this.anchorX * this.size;
+    }
+  }
+
+  evaluateYInput(inputElement) {
+    try {
+      const val = eval(inputElement.value);
+      if (typeof val === 'number' && !isNaN(val)) {
+        this.y = Math.round(val - this.anchorY * this.size);
+        inputElement.value = Math.round(val);
+        this.notifyUpdate();
+      } else {
+        throw new Error('Result is not a valid number.');
+      }
+    } catch {
+      alert('Invalid expression for Y.');
+      inputElement.value = this.y + this.anchorY * this.size;
+    }
+  }
+
+  evaluateScaleInput(inputElement) {
+    try {
+      const val = eval(inputElement.value);
+      if (typeof val === 'number' && !isNaN(val) && val > 0) {
+        const snapped = this.snapToMultiple(val, this.currentMarkSize);
+        if (snapped !== val) {
+          alert(`Size snapped to nearest multiple of ${this.currentMarkSize}: ${snapped}`);
+          inputElement.value = snapped;
+        }
+        const oldSize = this.size;
+        this.size = Math.round(snapped);
+        this.adjustPositionForScale(oldSize, this.size);
+        this.regenerateMarker();
+      } else {
+        throw new Error('Size must be a positive number.');
+      }
+    } catch {
+      alert('Invalid expression for Size.');
+      inputElement.value = this.size;
+    }
   }
 
   snapToMultiple(value, multipleOf) {
@@ -307,9 +334,6 @@ class MarkerObj {
     this.x -= this.anchorX * deltaSize;
     this.y -= this.anchorY * deltaSize;
   }
-
-  // Note: We do NOT call adjustPositionForAnchorChange from the anchor click event,
-  // leaving the original anchoring behavior intact.
 
   highlightAnchorCell(cells, ax, ay) {
     cells.forEach(c => {
