@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-  // DOM Elements
   const dictionarySelect = document.getElementById('dictionarySelect');
   const markerIdInput = document.getElementById('markerIdInput');
   const markerMaxInfo = document.getElementById('markerMaxInfo');
@@ -11,36 +10,30 @@ document.addEventListener('DOMContentLoaded', () => {
   const exportMarkersBtn = document.getElementById('exportMarkersBtn');
   const importMarkersBtn = document.getElementById('importMarkersBtn');
   const importFileInput = document.getElementById('importFileInput');
-  const imageList = document.getElementById('imageList'); // Container for ImageObj panels
-
+  const imageList = document.getElementById('imageList');
   const bgColorPicker = document.getElementById('bgColorPicker');
-
   const canvasWidthInput = document.getElementById('canvasWidthInput');
   const canvasHeightInput = document.getElementById('canvasHeightInput');
-
   const ctx = editorCanvas.getContext('2d');
 
   let currentDictionaryName = null;
   let currentDictionary = null;
   let markers = [];
-
   let images = [];
-
   let draggedMarker = null;
-  let draggedImage = null; 
+  let draggedImage = null;
   let dragOffsetX = 0;
   let dragOffsetY = 0;
 
-  // Populate dictionary dropdown from AR.DICTIONARIES first
-  // ARUCO dictionaries first
+  canvasWidthInput.type = 'text';
+  canvasHeightInput.type = 'text';
+
   for (const dicName in AR.DICTIONARIES) {
     const option = document.createElement('option');
     option.value = dicName;
     option.textContent = dicName;
     dictionarySelect.appendChild(option);
   }
-
-  // Add QR_CODE at the bottom
   {
     const qrOption = document.createElement('option');
     qrOption.value = 'QR_CODE';
@@ -48,21 +41,21 @@ document.addEventListener('DOMContentLoaded', () => {
     dictionarySelect.appendChild(qrOption);
   }
 
-  // Set default dictionary
   dictionarySelect.value = 'ARUCO';
   updateDictionary(dictionarySelect.value);
 
-  // Event Listeners
   dictionarySelect.addEventListener('change', () => {
     updateDictionary(dictionarySelect.value);
   });
 
   markerIdInput.addEventListener('change', updateMarkerIDInfo);
-  addMarkerBtn.addEventListener('click', () => { addMarker(); });
+  addMarkerBtn.addEventListener('click', () => {
+    addMarker();
+  });
 
   imageUpload.addEventListener('change', (e) => {
     loadMultipleImagesFromFiles(e.target.files);
-    e.target.value = ''; // Reset the input
+    e.target.value = '';
   });
 
   importMarkersBtn.addEventListener('click', () => {
@@ -81,24 +74,28 @@ document.addEventListener('DOMContentLoaded', () => {
   editorCanvas.addEventListener('mouseleave', onCanvasMouseUp);
   saveImageBtn.addEventListener('click', saveCompositeImage);
   exportMarkersBtn.addEventListener('click', exportMarkers);
-
   bgColorPicker.addEventListener('input', drawScene);
 
   [canvasWidthInput, canvasHeightInput].forEach(el => {
-    el.addEventListener('input', applyCanvasResize);
-    el.addEventListener('blur', applyCanvasResize);
-    el.addEventListener('keydown', (ev) => { 
-      if (ev.key === 'Enter') applyCanvasResize(); 
+    el.addEventListener('keydown', (ev) => {
+      if (ev.key === 'Enter') {
+        applyCanvasResize();
+      }
+    });
+    el.addEventListener('blur', () => {
+      applyCanvasResize();
     });
   });
 
   function initializeCanvasSize() {
-    const initialWidth = parseInt(canvasWidthInput.value, 10) || 1920;
-    const initialHeight = parseInt(canvasHeightInput.value, 10) || 1080;
+    const initialWidth = eval(canvasWidthInput.value) || 1920;
+    const initialHeight = eval(canvasHeightInput.value) || 1080;
     editorCanvas.width = initialWidth;
     editorCanvas.height = initialHeight;
     editorCanvas.style.width = `${initialWidth}px`;
     editorCanvas.style.height = `${initialHeight}px`;
+    canvasWidthInput.value = initialWidth;
+    canvasHeightInput.value = initialHeight;
     drawScene();
   }
 
@@ -125,22 +122,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function addMarker(dictionaryName = currentDictionaryName, markerID = markerIdInput.value, x = 50, y = 50, size = 100) {
     if (dictionaryName !== 'QR_CODE') {
-      // ARUCO marker requires numeric ID
       const numID = parseInt(markerID, 10);
       if (isNaN(numID)) return;
       if (!currentDictionary) return;
       markerID = numID;
     }
-    x = Math.round(x);
-    y = Math.round(y);
-    size = Math.round(size);
-
+    const xVal = eval(x);
+    const yVal = eval(y);
+    const sVal = eval(size);
+    if (isNaN(xVal) || isNaN(yVal) || isNaN(sVal)) return;
     const marker = new MarkerObj(
       dictionaryName,
       markerID,
-      x,
-      y,
-      size,
+      Math.round(xVal),
+      Math.round(yVal),
+      Math.round(sVal),
       () => {
         drawScene();
       },
@@ -210,19 +206,17 @@ document.addEventListener('DOMContentLoaded', () => {
   function drawScene() {
     ctx.imageSmoothingEnabled = false;
     ctx.clearRect(0, 0, editorCanvas.width, editorCanvas.height);
-
     ctx.fillStyle = bgColorPicker.value;
     ctx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
-
     images.forEach(io => {
-      ctx.drawImage(io.image,
-        io.x - (io.width / 2),    // Shift left by half the width
-        io.y - (io.height / 2),   // Shift up by half the height
+      ctx.drawImage(
+        io.image,
+        io.x - (io.width / 2),
+        io.y - (io.height / 2),
         io.width,
         io.height
       );
     });
-
     markers.forEach(marker => {
       if (marker.cachedImage) {
         ctx.drawImage(marker.cachedImage, marker.x, marker.y);
@@ -238,11 +232,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!filename.endsWith(`.${extension}`)) {
       filename += `.${extension}`;
     }
-
     const mimeType = format === 'jpg' ? 'image/jpeg' : `image/${format}`;
     const quality = format === 'jpg' ? 0.92 : 1.0;
     const dataURL = editorCanvas.toDataURL(mimeType, quality);
-
     const a = document.createElement('a');
     a.href = dataURL;
     a.download = filename;
@@ -258,11 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
       backgroundColor: bgColorPicker.value,
       markers: markers.map(m => m.toJSON())
     };
-
     const json = JSON.stringify(data, null, 2);
     const blob = new Blob([json], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
-
     const a = document.createElement('a');
     a.href = url;
     a.download = 'markers.json';
@@ -277,14 +267,12 @@ document.addEventListener('DOMContentLoaded', () => {
     reader.onload = (e) => {
       try {
         const data = JSON.parse(e.target.result);
-
         markers.forEach(m => {
           if (m.uiElement && m.uiElement.parentNode) {
             m.uiElement.parentNode.removeChild(m.uiElement);
           }
         });
         markers = [];
-
         if (typeof data.canvasWidth === 'number' && typeof data.canvasHeight === 'number') {
           editorCanvas.width = data.canvasWidth;
           editorCanvas.height = data.canvasHeight;
@@ -293,11 +281,9 @@ document.addEventListener('DOMContentLoaded', () => {
           canvasWidthInput.value = data.canvasWidth;
           canvasHeightInput.value = data.canvasHeight;
         }
-
         if (data.backgroundColor) {
           bgColorPicker.value = data.backgroundColor;
         }
-
         if (Array.isArray(data.markers)) {
           data.markers.forEach(d => {
             if (
@@ -324,7 +310,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
           });
         }
-
         drawScene();
       } catch (err) {
         alert('Invalid JSON file');
@@ -340,16 +325,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const scaleY = editorCanvas.height / rect.height;
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
-
     draggedMarker = null;
     draggedImage = null;
-
     for (let i = markers.length - 1; i >= 0; i--) {
       const marker = markers[i];
       const mx = marker.x;
       const my = marker.y;
       const ms = marker.size;
-
       if (mouseX >= mx && mouseX <= mx + ms &&
           mouseY >= my && mouseY <= my + ms) {
         draggedMarker = marker;
@@ -358,19 +340,15 @@ document.addEventListener('DOMContentLoaded', () => {
         return;
       }
     }
-
     for (let i = images.length - 1; i >= 0; i--) {
       const io = images[i];
-      // since io.x, io.y is center, compute bounding rect
-      const left   = io.x - io.width / 2;
-      const right  = left + io.width;
-      const top    = io.y - io.height / 2;
+      const left = io.x - io.width / 2;
+      const right = left + io.width;
+      const top = io.y - io.height / 2;
       const bottom = top + io.height;
-
       if (mouseX >= left && mouseX <= right &&
           mouseY >= top && mouseY <= bottom) {
         draggedImage = io;
-        // We'll store offset relative to the image's center
         dragOffsetX = mouseX - io.x;
         dragOffsetY = mouseY - io.y;
         break;
@@ -380,23 +358,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
   function onCanvasMouseMove(e) {
     if (!draggedMarker && !draggedImage) return;
-
     const rect = editorCanvas.getBoundingClientRect();
     const scaleX = editorCanvas.width / rect.width;
     const scaleY = editorCanvas.height / rect.height;
     const mouseX = (e.clientX - rect.left) * scaleX;
     const mouseY = (e.clientY - rect.top) * scaleY;
-
     if (draggedMarker) {
       draggedMarker.x = mouseX - dragOffsetX;
       draggedMarker.y = mouseY - dragOffsetY;
     }
-
     if (draggedImage) {
       draggedImage.x = mouseX - dragOffsetX;
       draggedImage.y = mouseY - dragOffsetY;
     }
-
     drawScene();
   }
 
@@ -407,7 +381,6 @@ document.addEventListener('DOMContentLoaded', () => {
       draggedMarker.notifyUpdate();
       draggedMarker = null;
     }
-
     if (draggedImage) {
       draggedImage.x = Math.round(draggedImage.x);
       draggedImage.y = Math.round(draggedImage.y);
@@ -417,15 +390,20 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   function applyCanvasResize() {
-    const newWidth = parseInt(canvasWidthInput.value, 10);
-    const newHeight = parseInt(canvasHeightInput.value, 10);
-
-    if (!isNaN(newWidth) && !isNaN(newHeight)) {
-      editorCanvas.width = newWidth;
-      editorCanvas.height = newHeight;
-      editorCanvas.style.width = `${newWidth}px`;
-      editorCanvas.style.height = `${newHeight}px`;
-      drawScene();
+    try {
+      const newWidth = eval(canvasWidthInput.value);
+      const newHeight = eval(canvasHeightInput.value);
+      if (!isNaN(newWidth) && !isNaN(newHeight) && newWidth > 0 && newHeight > 0) {
+        editorCanvas.width = newWidth;
+        editorCanvas.height = newHeight;
+        editorCanvas.style.width = `${newWidth}px`;
+        editorCanvas.style.height = `${newHeight}px`;
+        canvasWidthInput.value = Math.round(newWidth);
+        canvasHeightInput.value = Math.round(newHeight);
+        drawScene();
+      }
+    } catch (e) {
+      alert('Invalid expression for canvas size.');
     }
   }
 
