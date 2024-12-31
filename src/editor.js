@@ -215,7 +215,12 @@ document.addEventListener('DOMContentLoaded', () => {
     ctx.fillRect(0, 0, editorCanvas.width, editorCanvas.height);
 
     images.forEach(io => {
-      ctx.drawImage(io.image, io.x, io.y, io.width, io.height);
+      ctx.drawImage(io.image,
+        io.x - (io.width / 2),    // Shift left by half the width
+        io.y - (io.height / 2),   // Shift up by half the height
+        io.width,
+        io.height
+      );
     });
 
     markers.forEach(marker => {
@@ -356,9 +361,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     for (let i = images.length - 1; i >= 0; i--) {
       const io = images[i];
-      if (mouseX >= io.x && mouseX <= io.x + io.width &&
-          mouseY >= io.y && mouseY <= io.y + io.height) {
+      // since io.x, io.y is center, compute bounding rect
+      const left   = io.x - io.width / 2;
+      const right  = left + io.width;
+      const top    = io.y - io.height / 2;
+      const bottom = top + io.height;
+
+      if (mouseX >= left && mouseX <= right &&
+          mouseY >= top && mouseY <= bottom) {
         draggedImage = io;
+        // We'll store offset relative to the image's center
         dragOffsetX = mouseX - io.x;
         dragOffsetY = mouseY - io.y;
         break;
